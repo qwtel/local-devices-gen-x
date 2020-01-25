@@ -1,0 +1,32 @@
+{
+  "name": "local-devices-gen-x",
+  "version": "0.0.1",
+  "description": "Quickly find all devices in a local network",
+  "author": "Florian Klampfer <mail@qwtel.com> (https://qwtel.com/)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qwtel/local-devices-gen-x.git"
+  },
+  "keywords": [
+    "arp",
+    "devices",
+    "ip",
+    "local",
+    "mac",
+    "mac-address",
+    "scan"
+  ],
+  "main": "./index.js",
+  "engines": {
+    "node": ">=11"
+  },
+  "dependencies": {
+    "arp-a-x-2": "^1.1.2",
+    "get-ip-range": "^2.1.0"
+  },
+  "homepage": "https://github.com/qwtel/local-devices-gen-x#readme",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": "MIT"
+}
