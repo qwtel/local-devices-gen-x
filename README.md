@@ -8,14 +8,11 @@ Uses a native `arp -a` implementation on platforms that support it (see [`arp-a-
 
 It is very similar to [`local-devices`](https://github.com/DylanPiercey/local-devices), and compares as follows:
 
-Favorable
 * Smaller code footprint
 * Returns results slightly faster in a typical case, and
 * when using the async generator, results stream in instantly.
 * Response times are stable (`local-devices` can sometimes take up to one minute, at least on macOS)
 * Allows specifying IP ranges via CIDR notation
-
-Unfavorable
 * Does not provide hostnames
 * No global lock
 * Less/no configuration options
