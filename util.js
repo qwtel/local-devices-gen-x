@@ -43,8 +43,25 @@ function ipRange(addr) {
   }
 }
 
+// Remove special chars from MAC addresses for safer comparison
+const toHex = mac => mac.toLowerCase().replace(/[:-]/g, '');
+
+const timeout = (t) => new Promise(res => setTimeout(res, t));
+
+const parseIP = (ip) => ip.split('.').map(Number);
+
+function arrayCompare(as, bs) {
+  const res = as[0] - bs[0];
+  if (res === 0 && as.length > 1) return arrayCompare(as.slice(1), bs.slice(1));
+  return res;
+}
+
 module.exports = {
   raceAll,
   ping,
   ipRange,
+  toHex,
+  timeout,
+  parseIP,
+  arrayCompare,
 };
