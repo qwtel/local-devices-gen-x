@@ -1,19 +1,57 @@
 const os = require('os');
+const { Socket } = require('net');
 
+const getIPRange = require('get-ip-range');
 const { ipLookup, arpTable } = require('arp-a-x-2');
 
-const { raceAll, ping, ipRange, toHex, timeout, parseIP, arrayCompare } = require('./util');
+const { mapConcurrently, toHex, parseIPv4, arrayCompare } = require('./util');
 
-const MAX_TIMEOUT = 2500;
+/**
+ * Releasing a barrage of pings into the network can wreck havoc,
+ * (Specifically in my case, Broadlink devices would drop form the network / stop responding).
+ * so we're limiting the number of concurrent requests.
+ */
+const MAX_CONCURRENT = Number(process.env.LOCAL_DEVICES_MAX_CONCURRENT) || 32;
+
+const PING_TIMEOUT = 250;
+
+// const MAX_TIMEOUT = 2500;
+
+/**
+ * Connect to the host at IPv4 `address`. This is solely to force an update to the ARP table.
+ * Will **not** return any stats or even distinguish between online and offline hosts. Times out after 1 sec.
+ * @param {string} address IPv4 address
+ * @returns {Promise<string>} A promise that resolves when a connection was either established, error-ed, or timed out.
+ */
+function ping(address) {
+  return new Promise(resolve => {
+    const socket = new Socket();
+    const close = () => (socket.destroy(), resolve(address));
+    socket.setTimeout(PING_TIMEOUT, close);
+    socket.connect(80, address, close);
+    socket.once('error', close);
+  });
+}
+
+/**
+ * Wrapper around `get-ip-range` that ignores exceptions. Set `DEBUG` environment variable to log errors.
+ * Some of the CIDRs returned from `os.networkInterfaces()` can't be parsed by this library, but we don't care.
+ * @param {string} addr 
+ * @returns {string[]}
+ * @see https://www.npmjs.com/package/get-ip-range
+ */
+function ipRange(addr) {
+  try {
+    return getIPRange(addr);
+  } catch (err) {
+    if (process.env.DEBUG) console.warn(err);
+    return [];
+  }
+}
 
 /** 
- * JSON representation of a device on the local network.
- * It's actually just a ARP table entry.
- * IP and MAC are always present, the rest depends on the platform.
- * @typedef {{ ip: string, mac: string, flag?: string, iface?: string, ifname?: string }} Device
+ * Returns the address CIDR of each network interface with an IPv4 address.
  */
-
-// Returns the address CIDR of each network interface with a IPv4 address.
 function* getAllNetworks() {
   for (const addresses of Object.values(os.networkInterfaces())) {
     for (const address of addresses) {
@@ -32,16 +70,8 @@ const makeIPSetWithDefault = (cidr, ...cidrs) => cidr != null
   ? makeIPSet(cidr, ...cidrs)
   : makeIPSet(...getAllNetworks());
 
-// Pings all devices in the provides IP set within 1 second.
-// Each ping has a random delay to avoid sending them all at once.
-const pingAll = (ipSet) => [...ipSet].map(async (ip) => {
-  await timeout(Math.random() * MAX_TIMEOUT);
-  return ping(ip);
-});
-
 async function* scan(ipSet) {
-  const pings = pingAll(ipSet);
-  for await (const host of raceAll(pings)) {
+  for await (const host of mapConcurrently(ipSet, MAX_CONCURRENT, ping)) {
     for (const device of await ipLookup(host) || []) {
       if (ipSet.has(device.ip)) yield device;
     }
@@ -85,18 +115,32 @@ async function findLocalDevice(macOrIP, address, ...addresses) {
 /**
  * Pings all IPv4 addresses within a range and returns their ARP table entries as an array once all pings have either finished or timed out.
  * @param {string} address An IPv4 range in either CIDR notation, a hyphenated IP range, or two IP addresses. Omit to scan entire network.
- * @returns {Promise<Array<Device>>} All ARP table entries as an array
+ * @returns {Promise<Array<Device>>} All ARP table entries as an array and sorted by IP address
  * @see https://www.npmjs.com/package/get-ip-range
  */
 async function getLocalDeviceList(address, ...addresses) {
   const ipSet = makeIPSetWithDefault(address, ...addresses);
 
-  await Promise.all(pingAll(ipSet));
+  for await (const _ of mapConcurrently(ipSet, MAX_CONCURRENT, ping)) {}
 
   return (await arpTable())
     .filter(({ ip }) => ipSet.has(ip))
-    .sort((a, b) => arrayCompare(parseIP(a.ip), parseIP(b.ip)));
+    .sort((a, b) => arrayCompare(parseIPv4(a.ip), parseIPv4(b.ip)));
 }
+
+/** 
+ * @typedef {{ ip: string, mac: string, flag?: string, iface?: string, ifname?: string }} Device
+ * JSON representation of a device on the local network.
+ * It's actually just a ARP table entry.
+ * IP and MAC are always present, the rest depends on the platform.
+ */
+
+// Pings all devices in the provides IP set within 1 second.
+// Each ping has a random delay to avoid sending them all at once.
+// const pingAll = (ipSet) => [...ipSet].map(async (ip) => {
+//   await timeout(Math.random() * MAX_TIMEOUT);
+//   return ping(ip);
+// });
 
 module.exports = {
   findLocalDevices,
