@@ -1,6 +1,6 @@
 {
   "name": "local-devices-gen-x",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Quickly find all devices in a local network",
   "author": "Florian Klampfer <mail@qwtel.com> (https://qwtel.com/)",
   "repository": {
