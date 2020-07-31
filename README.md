@@ -1,5 +1,7 @@
 # local-devices-gen-x
 
+__DEPRECATION WARNING__: I've originally used this package to avoid assinging static IPs in a local network. This turned out to be an unreliable and unworkable solution. As a result, this package is now archived.
+
 **Local** **Devices** **Gen**erator Cross (**X**) Platform
 
 Finds all devices in a local network by pinging all IPv4 addresses within a range and then reading from the ARP cache.
